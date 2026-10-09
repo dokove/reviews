@@ -1,0 +1,42 @@
+{
+  "name": "@dokove/review",
+  "version": "1.0.0",
+  "description": "Simulador de Code Review y auditoría técnica de Pull Requests con taxonomías y evaluación automatizada.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./reviews-data.json": "./dist/reviews-data.json"
+  },
+  "files": [
+    "dist",
+    "reviews",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "npm run build && vite",
+    "build": "node scripts/build-reviews-data.mjs",
+    "validate:taxonomies": "node scripts/validate-taxonomies.mjs",
+    "validate": "npm run validate:taxonomies",
+    "test": "npm run build && npm run validate:taxonomies",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+  },
+  "dependencies": {
+    "@dokove/taxonomies": "file:../pub.taxonomies"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@dokove/flexible-content": "file:../dokove.ui/packages/flexible-content",
+    "@vitejs/plugin-react": "^6.1.1",
+    "dokove-icons": "file:../dokove.ui/packages/icons",
+    "dokove-ui": "file:../dokove.ui/packages/ui",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-select": "^5.10.2",
+    "vite": "^8.3.2"
+  }
+}

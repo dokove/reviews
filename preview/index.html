@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es" class="dark h-full scroll-smooth" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dokove Code Review — Simulador de Auditoría Técnica de PRs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Manrope', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      font-family: 'Plus Jakarta Sans', 'Manrope', system-ui, sans-serif;
+      --dui-accent: #4f46e5;
+      --dui-accent-hover: #4338ca;
+      --dui-accent-soft: #eef2ff;
+    }
+    code, pre, kbd {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Sepia theme */
+    .sepia-theme {
+      background-color: #fbf7ee !important;
+      color: #382c1e !important;
+      --dui-surface: #f7f1e1;
+      --dui-border: #e6dac1;
+      --dui-text: #382c1e;
+      --dui-text-muted: #79664f;
+      --dui-accent: #92541a;
+    }
+
+    /* Elegant scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.6);
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.2);
+    }
+    .dark ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.4);
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased m-0 p-0 transition-colors duration-200">
+  <div id="root"></div>
+  <script type="module" src="/main.tsx"></script>
+</body>
+</html>

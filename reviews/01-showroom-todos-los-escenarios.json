@@ -1,0 +1,178 @@
+{
+  "id": "01-showroom-todos-los-escenarios",
+  "title": "PR #142: Fast Auth Session Blacklist & Token Rotation",
+  "prNumber": 142,
+  "author": {
+    "name": "Carlos Rivera",
+    "username": "carlos-r",
+    "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces",
+    "role": "Mid Backend Developer"
+  },
+  "repository": "dokove/auth-service",
+  "branch": {
+    "source": "feat/session-blacklist",
+    "target": "main"
+  },
+  "category": "review.security",
+  "tags": [
+    "review.jwt-security",
+    "review.memory-leak",
+    "review.race-condition",
+    "review.code-smells"
+  ],
+  "seniority": "senior",
+  "estimatedMinutes": 15,
+  "description": "### Contexto de la Pull Request\n\nHola equipo, en este PR implemento la invalidación rápida de tokens JWT para soportar logout forzado y rotación de credenciales.\n\n**Cambios principales:**\n1. `jwt-verifier.ts`: Middleware para verificar firmas JWT y comprobar si el token está revocado.\n2. `session-blacklist.ts`: Servicio en memoria ultrarrápido para blacklist de tokens revocados.\n3. `formatting.ts`: Limpieza y formateo de utilidades de sesión.\n\nHe probado esto localmente con Postman y funciona al 100%. Por favor revisen y aprueben para desplegar a staging hoy.",
+  "files": [
+    {
+      "path": "src/middleware/jwt-verifier.ts",
+      "status": "modified",
+      "additions": 28,
+      "deletions": 6,
+      "diffLines": [
+        { "type": "normal", "content": "import jwt from 'jsonwebtoken';", "oldLineNumber": 1, "newLineNumber": 1 },
+        { "type": "normal", "content": "import { Request, Response, NextFunction } from 'express';", "oldLineNumber": 2, "newLineNumber": 2 },
+        { "type": "add", "content": "import { isTokenBlacklisted } from '../services/session-blacklist';", "newLineNumber": 3 },
+        { "type": "normal", "content": "", "oldLineNumber": 3, "newLineNumber": 4 },
+        { "type": "normal", "content": "export async function verifyAuthToken(req: Request, res: Response, next: NextFunction) {", "oldLineNumber": 4, "newLineNumber": 5 },
+        { "type": "normal", "content": "  const authHeader = req.headers.authorization;", "oldLineNumber": 5, "newLineNumber": 6 },
+        { "type": "normal", "content": "  if (!authHeader?.startsWith('Bearer ')) {", "oldLineNumber": 6, "newLineNumber": 7 },
+        { "type": "normal", "content": "    return res.status(401).json({ error: 'Missing token' });", "oldLineNumber": 7, "newLineNumber": 8 },
+        { "type": "normal", "content": "  }", "oldLineNumber": 8, "newLineNumber": 9 },
+        { "type": "normal", "content": "  const token = authHeader.split(' ')[1];", "oldLineNumber": 9, "newLineNumber": 10 },
+        { "type": "normal", "content": "", "oldLineNumber": 10, "newLineNumber": 11 },
+        { "type": "del", "content": "  const decoded = jwt.verify(token, process.env.JWT_SECRET as string);", "oldLineNumber": 11 },
+        { "type": "add", "content": "  // Verificamos si el token está en blacklist antes de descifrar", "newLineNumber": 12 },
+        { "type": "add", "content": "  if (await isTokenBlacklisted(token)) {", "newLineNumber": 13 },
+        { "type": "add", "content": "    return res.status(401).json({ error: 'Revoked token' });", "newLineNumber": 14 },
+        { "type": "add", "content": "  }", "newLineNumber": 15 },
+        { "type": "add", "content": "", "newLineNumber": 16 },
+        { "type": "add", "content": "  try {", "newLineNumber": 17 },
+        { "type": "add", "content": "    // Aceptamos cualquier algoritmo presente en el header del token", "newLineNumber": 18 },
+        { "type": "add", "content": "    const decoded = jwt.verify(token, process.env.JWT_PUBLIC_KEY || 'fallback-dev-secret');", "newLineNumber": 19 },
+        { "type": "add", "content": "    req.user = decoded;", "newLineNumber": 20 },
+        { "type": "add", "content": "    next();", "newLineNumber": 21 },
+        { "type": "add", "content": "  } catch (err) {", "newLineNumber": 22 },
+        { "type": "add", "content": "    return res.status(403).json({ error: 'Invalid signature' });", "newLineNumber": 23 },
+        { "type": "add", "content": "  }", "newLineNumber": 24 },
+        { "type": "normal", "content": "}", "oldLineNumber": 12, "newLineNumber": 25 },
+        { "type": "normal", "content": "", "oldLineNumber": 13, "newLineNumber": 26 },
+        { "type": "add", "content": "export function validateSessionSignature(providedSig: string, expectedSig: string): boolean {", "newLineNumber": 27 },
+        { "type": "add", "content": "  // Comparamos firmas directamente con igualdad estricta", "newLineNumber": 28 },
+        { "type": "add", "content": "  return providedSig === expectedSig;", "newLineNumber": 29 },
+        { "type": "add", "content": "}", "newLineNumber": 30 }
+      ],
+      "issues": [
+        {
+          "id": "sec-01",
+          "line": 19,
+          "side": "right",
+          "severity": "critical",
+          "category": "security",
+          "title": "JWT Algorithm Confusion y Fallback Secret inseguro",
+          "explanation": "Al no especificar `{ algorithms: ['RS256'] }`, un atacante puede cambiar el header a 'none' o 'HS256' usando la clave pública como secreto HMAC, falsificando cualquier token de administración. Además, el fallback 'fallback-dev-secret' en producción compromete la clave.",
+          "keywords": ["algorithm", "confusion", "algorithms", "RS256", "HS256", "none", "secret", "fallback"],
+          "suggestedFix": "const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });"
+        },
+        {
+          "id": "sec-02",
+          "line": 29,
+          "side": "right",
+          "severity": "warning",
+          "category": "security",
+          "title": "Timing Attack en comparación de firmas criptográficas",
+          "explanation": "El operador `===` termina prematuramente en el primer carácter dispar, filtrando información de tiempo que permite a un atacante inferir firmas carácter a carácter. Debe usarse `crypto.timingSafeEqual()`.",
+          "keywords": ["timing attack", "timingSafeEqual", "crypto", "time leak", "tiempo"],
+          "suggestedFix": "return crypto.timingSafeEqual(Buffer.from(providedSig), Buffer.from(expectedSig));"
+        }
+      ]
+    },
+    {
+      "path": "src/services/session-blacklist.ts",
+      "status": "added",
+      "additions": 32,
+      "deletions": 0,
+      "diffLines": [
+        { "type": "add", "content": "/**", "newLineNumber": 1 },
+        { "type": "add", "content": " * Repositorio de tokens revocados en memoria para baja latencia.", "newLineNumber": 2 },
+        { "type": "add", "content": " */", "newLineNumber": 3 },
+        { "type": "add", "content": "const revokedTokens = new Set<string>();", "newLineNumber": 4 },
+        { "type": "add", "content": "", "newLineNumber": 5 },
+        { "type": "add", "content": "export async function blacklistToken(token: string): Promise<void> {", "newLineNumber": 6 },
+        { "type": "add", "content": "  // Verificamos si ya existe antes de añadir", "newLineNumber": 7 },
+        { "type": "add", "content": "  if (!revokedTokens.has(token)) {", "newLineNumber": 8 },
+        { "type": "add", "content": "    await new Promise((res) => setTimeout(res, 5)); // Simular flush I/O", "newLineNumber": 9 },
+        { "type": "add", "content": "    revokedTokens.add(token);", "newLineNumber": 10 },
+        { "type": "add", "content": "  }", "newLineNumber": 11 },
+        { "type": "add", "content": "}", "newLineNumber": 12 },
+        { "type": "add", "content": "", "newLineNumber": 13 },
+        { "type": "add", "content": "export async function isTokenBlacklisted(token: string): Promise<boolean> {", "newLineNumber": 14 },
+        { "type": "add", "content": "  return revokedTokens.has(token);", "newLineNumber": 15 },
+        { "type": "add", "content": "}", "newLineNumber": 16 }
+      ],
+      "issues": [
+        {
+          "id": "mem-01",
+          "line": 4,
+          "side": "right",
+          "severity": "critical",
+          "category": "performance",
+          "title": "Memory Leak: Set en memoria sin TTL, evicción ni persistencia distribuida",
+          "explanation": "El `Set<string>` crecerá indefinidamente con cada logout o expiración sin liberar memoria jamás (OOM crash). Además, en entornos con múltiples instancias o pods de Kubernetes, el estado no se comparte entre réplicas. Debe usarse Redis con TTL (EXPIRE).",
+          "keywords": ["memory leak", "leak", "unbounded", "ttl", "redis", "oom", "set", "eviction"],
+          "suggestedFix": "await redisClient.set(`blacklist:${tokenId}`, '1', { EX: tokenRemainingTtl });"
+        },
+        {
+          "id": "race-01",
+          "line": 8,
+          "side": "right",
+          "severity": "critical",
+          "category": "concurrency",
+          "title": "Race Condition (Check-Then-Act no atómico)",
+          "explanation": "La comprobación `has(token)` seguida de un `setTimeout` asíncrono antes del `add(token)` crea una ventana de tiempo vulnerable donde múltiples peticiones concurrentes provocan condiciones de carrera y ejecuciones redundantes de flush.",
+          "keywords": ["race condition", "check-then-act", "concurrencia", "atomic", "atómico"],
+          "suggestedFix": "revokedTokens.add(token); // o comando atómico SETNX / SADD en Redis"
+        }
+      ]
+    },
+    {
+      "path": "src/utils/formatting.ts",
+      "status": "modified",
+      "additions": 8,
+      "deletions": 4,
+      "diffLines": [
+        { "type": "normal", "content": "export function formatSessionId(userId: string, timestamp: number): string {", "oldLineNumber": 1, "newLineNumber": 1 },
+        { "type": "del", "content": "  return 'sess_' + userId + '_' + timestamp;", "oldLineNumber": 2 },
+        { "type": "add", "content": "  const prefix = 'sess';", "newLineNumber": 2 },
+        { "type": "add", "content": "  return `${prefix}_${userId}_${timestamp}`;", "newLineNumber": 3 },
+        { "type": "normal", "content": "}", "oldLineNumber": 3, "newLineNumber": 4 },
+        { "type": "normal", "content": "", "oldLineNumber": 4, "newLineNumber": 5 },
+        { "type": "del", "content": "export const DEFAULT_TIMEOUT = 3600", "oldLineNumber": 5 },
+        { "type": "add", "content": "export const DEFAULT_TIMEOUT = 3600;", "newLineNumber": 6 },
+        { "type": "del", "content": "export const COOKIE_NAME = 'sid'", "oldLineNumber": 6 },
+        { "type": "add", "content": "export const COOKIE_NAME = 'sid';", "newLineNumber": 7 }
+      ],
+      "issues": [
+        {
+          "id": "distractor-01",
+          "line": 3,
+          "side": "right",
+          "severity": "nitpick",
+          "category": "style",
+          "title": "Distractor: Refactor cosmético válido",
+          "explanation": "Este cambio es un formateo cosmético limpio con template literals y punto y coma. Un reviewer Senior NO debe bloquear el PR por este cambio ni considerarlo un defecto crítico.",
+          "keywords": ["estilo", "prettier", "cosmetico", "distractor"],
+          "isDistractor": true
+        }
+      ]
+    }
+  ],
+  "rubric": {
+    "recommendedVerdict": "request_changes",
+    "passingScore": 75,
+    "totalCritical": 3,
+    "totalWarnings": 1,
+    "totalDistractors": 1,
+    "summary": "El candidato debe identificar obligatoriamente la vulnerabilidad de Algorithm Confusion en JWT, el Memory Leak en session-blacklist por falta de TTL/Redis, y la condición de carrera check-then-act. Debe solicitar cambios ('Request Changes') y no aprobar el PR."
+  }
+}
