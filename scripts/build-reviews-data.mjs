@@ -73,6 +73,98 @@ export default reviewsData;
 
 fs.writeFileSync(path.join(distDir, 'index.js'), entryJs, 'utf8');
 
+const entryDts = `export interface DiffLine {
+  type: 'normal' | 'add' | 'del';
+  content: string;
+  oldLineNumber?: number;
+  newLineNumber?: number;
+}
+
+export interface ReviewIssue {
+  id: string;
+  line: number;
+  side: 'left' | 'right';
+  severity: 'critical' | 'warning' | 'nitpick' | 'suggestion';
+  category: string;
+  title: string;
+  explanation: string;
+  keywords?: string[];
+  suggestedFix?: string;
+  isDistractor?: boolean;
+}
+
+export interface ReviewFile {
+  path: string;
+  status: 'modified' | 'added' | 'deleted';
+  additions: number;
+  deletions: number;
+  diffLines: DiffLine[];
+  issues?: ReviewIssue[];
+}
+
+export interface ReviewAuthor {
+  name: string;
+  username: string;
+  avatar: string;
+  role: string;
+}
+
+export interface ReviewBranch {
+  source: string;
+  target: string;
+}
+
+export interface ReviewRubric {
+  recommendedVerdict: 'request_changes' | 'approve' | 'comment';
+  passingScore: number;
+  totalCritical: number;
+  totalWarnings: number;
+  totalDistractors: number;
+  summary: string;
+}
+
+export interface ReviewScenario {
+  id: string;
+  title: string;
+  prNumber: number;
+  author: ReviewAuthor;
+  repository: string;
+  branch: ReviewBranch;
+  category: string;
+  tags: string[];
+  seniority: 'junior' | 'mid' | 'senior';
+  estimatedMinutes: number;
+  description: string;
+  files: ReviewFile[];
+  rubric: ReviewRubric;
+  fileName?: string;
+  totalIssues?: number;
+}
+
+export interface ReviewsData {
+  version: string;
+  generatedAt: string;
+  stats: {
+    totalScenarios: number;
+    totalFiles: number;
+    totalIssues: number;
+  };
+  scenarios: ReviewScenario[];
+}
+
+export declare const scenarios: ReviewScenario[];
+export declare const stats: {
+  totalScenarios: number;
+  totalFiles: number;
+  totalIssues: number;
+};
+
+declare const reviewsData: ReviewsData;
+export default reviewsData;
+`;
+
+fs.writeFileSync(path.join(distDir, 'index.d.ts'), entryDts, 'utf8');
+
 console.log(`\nCompilacion finalizada exitosamente:`);
 console.log(`   Escenarios: ${scenarios.length}`);
 console.log(`   Archivos modificados: ${totalFilesCount}`);
